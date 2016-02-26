@@ -381,7 +381,16 @@ TGraphAsymmErrors* getAsymmetryEbEUncertaintyTGraphErrors(
 		const bool do_reweighting = false
 		)
 {
-	TH1D* h_template = getAsymmetryEbE(0,G_binning_type)->ProfileX()->ProjectionX();;
+	TH2D* h2d_temp = getAsymmetryEbE(0,G_binning_type);
+	TH1D* h_template = h2d_temp->ProfileX()->ProjectionX();;
+
+	//Show middle step
+	if(f)
+	{
+		h2d_temp->SetName("h2d_asymmetry_pT_y");
+		f->cd();
+		h2d_temp->Write();
+	}
 
 	double xmin = h_template->GetXaxis()->GetXmin();
 	double xmax = h_template->GetXaxis()->GetXmax();
@@ -658,13 +667,12 @@ int main(int argc, char* argv[]) {
 		g_uncertainty_EbE_rw->Write();
 	}
 
-	if(false)// show all replicas
+	if(true)// show all replicas
 	{
 		TCanvas *c_show_all_replicas = new TCanvas("c_show_all_replicas","c_show_all_replicas",100,100,1000,800);
 		h_central_EbE->Draw();
 
-		vector<TH1D*> v_uncertainty_EbE = G_v_A_LL_replicas;
-		BOOST_FOREACH(TH1* h_temp, v_uncertainty_EbE)
+		BOOST_FOREACH(TH1* h_temp, G_v_A_LL_replicas)
 		{
 			h_temp->SetLineColor(46);
 			h_temp->SetLineStyle(2);
@@ -681,7 +689,6 @@ int main(int argc, char* argv[]) {
 
 		tfile->cd();
 		c_show_all_replicas->Write();
-		//c_show_all_replicas->SaveAs("c_show_all_replicas.png");
 	}
 
 	// Test re-weighting
@@ -696,7 +703,7 @@ int main(int argc, char* argv[]) {
 		g_pdf_og->Draw("ap4");
 
 		TGraphErrors *g_pdf_rw = getLogxXfErrorTH1D("NNPDFpol11_100",1.,G_g_run13_data);// Re-weighted plot
-		g_pdf_rw->SetMarkerStyle(20);
+		g_pdf_rw->SetMarkerStyle(4);
 		g_pdf_rw->SetFillColor(1);
 		g_pdf_rw->SetFillStyle(3005);
 		g_pdf_rw->SetName("g_pdf_rw");
@@ -722,7 +729,7 @@ int main(int argc, char* argv[]) {
 	//tfile->cd();
 	//h_one_value->Write();
 
-	tfile->Close();
+	//tfile->Close();
 
 	return 0;
 }
