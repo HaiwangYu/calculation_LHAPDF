@@ -143,12 +143,18 @@ tdd getLowHighCLBoundry(vector<double>v)
 
 TGraphErrors* getDataPlot()
 {
-	int n = 3;
-	double x[] = {1.12,2.79,5.25};
-	double y[] = {0.003,0.007,0.053};
-	double ex[] = {0,0,0};
-	double ey[] = {0.014,0.016,0.029};
-	//double ey[] = {0.005,0.005,0.005};
+	//int n = 3;
+	//double x[] = {1.12,2.79,5.25};
+	//double y[] = {0.003,0.007,0.053};
+	//double ex[] = {0,0,0};
+	//double ey[] = {0.014,0.016,0.029};
+
+	int n = 1;
+	double x[] = {2.0};
+	double y[] = {0.012};
+	double ex[] = {0};
+	double ey[] = {0.010};
+
 	TGraphErrors*gr = new TGraphErrors(n,x,y,ex,ey);
 	return gr;
 }
@@ -187,7 +193,7 @@ TH2D *getAsymmetryEbE(
 		const string binning_type = "pT",
 		const string polset = "NNPDFpol11_100",
 		const string unpolset = "NNPDF23_nlo_as_0119",
-		const string pythia_name = "./input/pythia_input.root"
+		const string pythia_name = "input.root"
 		)
 {
 	// Load pythia file
@@ -354,20 +360,19 @@ vector<double> getWeithtingFactors(vector<TH1D*> v_hists, TGraphErrors* g_data)
 		double wf = 1;
 		if(g_data)
 		{
-			for(int i=0;i<3;i++)
+			for(int i=0;i<g_data->GetN();i++)
 			{
 				double x, mean;
 				g_data->GetPoint(i,x,mean);
 				double error = g_data->GetErrorY(i);
 				double theory = hist->GetBinContent(hist->FindBin(x));
+				if(G_binning_type=="None")
+					theory = hist->GetBinContent(hist->FindBin(0));
 
 				wf *= TMath::Gaus(theory,mean,error);
-				//DEBUG
 				cout<<Form("DEBUG: x=%f; \t mean=%f; \t error=%f; \t theory=%f; \t wf=%f; \n",x,mean,error,theory,wf);
 			}
 		}
-		//DEBUG
-		cout<<Form("DEBUG: wf=%f; \n",wf);
 		vw.push_back(wf);
 	}
 	return vw;
@@ -439,6 +444,7 @@ TGraphAsymmErrors* getAsymmetryEbEUncertaintyTGraphErrors(
 		}
 		if(G_binning_type == "None")
 		{
+			//mean = h_template->GetBinContent(ibin);
 			const char* hname = "h_A_LL_dist_Combine";
 			TH1D *h_all_dist = new TH1D(hname,hname,100,-0.02,0.02);
 			cout<<"====="<<endl;
@@ -522,9 +528,11 @@ void initStuff()
 		G_g_run13_data->SetTitle(";One Bin; A_{LL}");
 
 	// A_LL calculated by replicas
+	G_v_A_LL_replicas.clear();
 	G_v_A_LL_replicas = getAsymmetryEbEReplicaVector(100,G_binning_type);//HARD_CODED
 
-	// 
+	// re-weighting factors
+	G_v_weighting_factors.clear();
 	G_v_weighting_factors = getWeithtingFactors(G_v_A_LL_replicas,G_g_run13_data);
 }
 
@@ -723,13 +731,28 @@ int main(int argc, char* argv[]) {
 
 	}
 
+	// No Binning
+	G_binning_type = "None";
+	G_v_A_LL_replicas.clear();
+	G_v_A_LL_replicas = getAsymmetryEbEReplicaVector(100,G_binning_type);//HARD_CODED
+	G_v_weighting_factors.clear();
+	G_v_weighting_factors = getWeithtingFactors(G_v_A_LL_replicas,G_g_run13_data);
+	TGraphAsymmErrors* g_uncertainty_None = getAsymmetryEbEUncertaintyTGraphErrors("StdDeV",G_CL_Scale,tfile);
+	g_uncertainty_None->SetName("g_uncertainty_None");
+	TGraphAsymmErrors* g_uncertainty_None_rw = getAsymmetryEbEUncertaintyTGraphErrors("StdDeV",G_CL_Scale,tfile,true);
+	g_uncertainty_None_rw->SetName("g_uncertainty_None_rw");
+
+	tfile->cd();
+	g_uncertainty_None->Write();
+	g_uncertainty_None_rw->Write();
+
 
 	// One Value
 	//TH1D* h_one_value = estimateOneValue();
 	//tfile->cd();
 	//h_one_value->Write();
 
-	//tfile->Close();
+	tfile->Close();
 
 	return 0;
 }
