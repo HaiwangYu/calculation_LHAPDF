@@ -143,17 +143,17 @@ tdd getLowHighCLBoundry(vector<double>v)
 
 TGraphErrors* getDataPlot()
 {
-	//int n = 3;
-	//double x[] = {1.12,2.79,5.25};
-	//double y[] = {0.003,0.007,0.053};
-	//double ex[] = {0,0,0};
-	//double ey[] = {0.014,0.016,0.029};
+	int n = 3;
+	double x[] = {1.12,2.79,5.25};
+	double y[] = {0.003,0.007,0.053};
+	double ex[] = {0,0,0};
+	double ey[] = {0.014,0.016,0.029};
 
-	int n = 1;
-	double x[] = {2.0};
-	double y[] = {0.012};
-	double ex[] = {0};
-	double ey[] = {0.010};
+	//int n = 1;
+	//double x[] = {2.0};
+	//double y[] = {0.012};
+	//double ex[] = {0};
+	//double ey[] = {0.010};
 
 	TGraphErrors*gr = new TGraphErrors(n,x,y,ex,ey);
 	return gr;
@@ -203,6 +203,10 @@ TH2D *getAsymmetryEbE(
 	float x2 = 0;
 	float pt = 0;
 	float y_com = 0;
+	//double x1 = 0;
+	//double x2 = 0;
+	//double pt = 0;
+	//double y_com = 0;
 	T->SetBranchAddress("x1",&x1);
 	T->SetBranchAddress("x2",&x2);
 	T->SetBranchAddress("pt",&pt);
@@ -615,7 +619,7 @@ TGraphErrors *getLogxXfErrorTH1D(
 
 	tge = new TGraphErrors(nbin,&tge_x[0],&tge_y[0],&tge_xe[0],&tge_ye[0]);
 	tge->SetName("tge_xf_logx_th1d");
-	tge->SetTitle(";log10(x);xf");
+	tge->SetTitle(";log10(x);x#Delta g");
 	return tge;
 }
 
