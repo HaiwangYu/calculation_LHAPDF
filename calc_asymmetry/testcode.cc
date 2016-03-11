@@ -7,6 +7,9 @@
 #include <fstream>
 #include <cmath>
 
+#include "stdio.h"
+#include "stdlib.h"
+
 #include <vector>
 
 #include "TMath.h"
@@ -25,6 +28,9 @@
 using namespace LHAPDF;
 using namespace std;
 
+string G_x_pT_mapping_method = "simulation";
+string G_input_pythia_name = "input.root";
+
 const double G_AHAT = 1; //ahat
 
 const double G_YRANGEMIN = -0.1;
@@ -33,9 +39,11 @@ const double G_YRANGEMAX =  0.1;
 const double G_Q2 = 10;
 const double G_CL_Scale = 2.;
 
+const double G_pz_min_cut = 2.;
+
 string G_binning_type = "pT";
 
-vector<TH1D*> G_v_A_LL_replicas;
+vector<TH1*> G_v_A_LL_replicas;
 
 vector<double> G_v_weighting_factors;
 
@@ -161,8 +169,27 @@ TGraphErrors* getDataPlot()
 
 void get_Bjorken_x_from_pT(double & x1, double & x2, double pT)
 {
-	x1 = 0.045 + 0.017*pT;
-	x2 = 0.0013 + 0.000063*pT;
+	if(G_x_pT_mapping_method == "pythia_6_func")
+	{
+		//Pythia 6 func
+		x1 = 0.045 + 0.017*pT;
+		x2 = 0.0013 + 0.000063*pT;
+	} else if(G_x_pT_mapping_method == "pythia_6_mean"){
+		//Pythia 6 mean
+		x1 = 0.072;
+		x2 = 0.0023;
+	} else if(G_x_pT_mapping_method == "pythia_6_mean2"){
+		//Pythia 6 mean v2
+		x1 = 0.098;
+		x2 = 0.0041;
+	} else if(G_x_pT_mapping_method == "pythia_8_mean"){
+		//Pythia 8 CS mean
+		x1 = 0.066;
+		x2 = 0.0028;
+	} else{
+		LogDebug("Not implemented!");
+		exit(1);
+	}
 }
 
 //TH1D *plotPDF(const string setname = "NNPDFpol11_100", const int imem = 0, double minlogx = -3, double maxlogx = 0)
@@ -192,16 +219,16 @@ TH2D *getAsymmetryEbE(
 		const int imem = 0,
 		const string binning_type = "pT",
 		const string polset = "NNPDFpol11_100",
-		const string unpolset = "NNPDF23_nlo_as_0119",
-		const string pythia_name = "input.root"
+		const string unpolset = "NNPDF23_nlo_as_0119"
 		)
 {
 	// Load pythia file
-	TFile *fin = TFile::Open(pythia_name.data(),"read");
+	TFile *fin = TFile::Open(G_input_pythia_name.data(),"read");
 	TTree *T = (TTree*)fin->Get("T");
 	float x1 = 0;
 	float x2 = 0;
 	float pt = 0;
+	float pz = 0;
 	float y_com = 0;
 	//double x1 = 0;
 	//double x2 = 0;
@@ -210,6 +237,7 @@ TH2D *getAsymmetryEbE(
 	T->SetBranchAddress("x1",&x1);
 	T->SetBranchAddress("x2",&x2);
 	T->SetBranchAddress("pt",&pt);
+	T->SetBranchAddress("pz",&pz);
 	T->SetBranchAddress("y_com",&y_com);
 
 
@@ -251,6 +279,8 @@ TH2D *getAsymmetryEbE(
 	{
 		T->GetEntry(ientry);
 
+		//if(abs(pz) < G_pz_min_cut) continue;
+
 		double x1dg = polpdf->xfxQ2(pid, x1, G_Q2);
 		double x2dg = polpdf->xfxQ2(pid, x2, G_Q2);
 		double x1g = unpolpdf->xfxQ2(pid, x1, G_Q2);
@@ -278,7 +308,62 @@ TH2D *getAsymmetryEbE(
 	return h_var_all;
 }
 
-TH1D *getAsymmetry(
+TH2D *getAsymmetry_Bjorken_x(
+		const int imem = 0,
+		const string polset = "NNPDFpol11_100",
+		const string unpolset = "NNPDF23_nlo_as_0119"
+		)
+{
+	const double min_bin_logx1 = -3.5;
+	const double max_bin_logx1 = 0;
+	const int nbin_logx1 = 400;
+	const double dbin_logx1 = (max_bin_logx1-min_bin_logx1)/nbin_logx1;
+
+	const double min_bin_logx2 = -3.5;
+	const double max_bin_logx2 = 0;
+	const int nbin_logx2 = 400;
+	const double dbin_logx2 = (max_bin_logx2-min_bin_logx2)/nbin_logx2;
+
+	char *hname = Form("A_{LL}: pol=%s-unpol=%s-Q2=%2.1f",polset.data(),unpolset.data(),G_Q2);
+
+	TH2D *h_result = new TH2D(hname,hname,
+			nbin_logx1,min_bin_logx1,max_bin_logx1,
+			nbin_logx2,min_bin_logx2,max_bin_logx2
+			);
+
+	const int pid = 21;
+
+	const PDF* polpdf = mkPDF(polset, imem);
+	const PDF* unpolpdf = mkPDF(unpolset, 0);
+
+	for(double logx1=min_bin_logx1+0.5*dbin_logx1;logx1<max_bin_logx1;logx1+=dbin_logx1)
+	{
+		for(double logx2=min_bin_logx2+0.5*dbin_logx2;logx2<max_bin_logx2;logx2+=dbin_logx2)
+		{
+			double x1 = pow(10,logx1);
+			double x2 = pow(10,logx2);
+			double x1dg =   polpdf->xfxQ2(pid, x1, G_Q2);
+			double x2dg =   polpdf->xfxQ2(pid, x2, G_Q2);
+			double x1g 	= unpolpdf->xfxQ2(pid, x1, G_Q2);
+			double x2g 	= unpolpdf->xfxQ2(pid, x2, G_Q2);
+
+			double asymmetry = G_AHAT*x1dg*x2dg/x1g/x2g;
+
+			h_result->Fill(logx1,logx2,asymmetry);
+		}
+	}
+
+	delete polpdf;
+	delete unpolpdf;
+
+	h_result->GetXaxis()->SetTitle("log10(x1)");
+	h_result->GetYaxis()->SetTitle("log10(x2)");
+
+	return h_result;
+}
+
+
+TH1D *getAsymmetryFunc(
 		const int imem = 0,
 		const string polset = "NNPDFpol11_100",
 		const string unpolset = "NNPDF23_nlo_as_0119"
@@ -328,24 +413,37 @@ vector<TH1D*> getAsymmetryReplicaVector(const int nmem = 100)
 
 	for(int imem = 0;imem<=nmem;imem++)
 	{
-		TH1D* h_temp = getAsymmetry(imem);
+		TH1D* h_temp = getAsymmetryFunc(imem);
 		vrep.push_back(h_temp);
 	}
 
 	return vrep;
 }
 
-
-vector<TH1D*> getAsymmetryEbEReplicaVector(
+vector<TH1*> getAsymmetryEbEReplicaVector(
 		const int nmem = 100,
 		const string binning_type = "pT"
 		)
 {
-	vector<TH1D*> vrep;
+	vector<TH1*> vrep;
 
 	for(int imem = 1;imem<=nmem;imem++)
 	{
-		TH1D* h_temp = getAsymmetryEbE(imem,binning_type)->ProfileX()->ProjectionX();
+		TH1* h_temp = NULL;
+		if(G_x_pT_mapping_method == "simulation")
+		{
+			h_temp = getAsymmetryEbE(imem,binning_type)->ProfileX()->ProjectionX();
+		}
+		else if(G_x_pT_mapping_method == "Bjorken_x_Scan")
+		{
+			h_temp = getAsymmetry_Bjorken_x(imem);
+			if(imem == 1)
+				h_temp->Print("all");
+		}
+		else
+		{
+			h_temp = getAsymmetryFunc(imem);
+		}
 		vrep.push_back(h_temp);
 	}
 
@@ -353,14 +451,14 @@ vector<TH1D*> getAsymmetryEbEReplicaVector(
 }
 
 // if g_data is NULL, fill the vector with 1.
-vector<double> getWeithtingFactors(vector<TH1D*> v_hists, TGraphErrors* g_data)
+vector<double> getWeithtingFactors(vector<TH1*> v_hists, TGraphErrors* g_data)
 {
 	vector<double> vw;
 
 	//BOOST_FOREACH(TH1D* hist, v_hists)
 	for(int j=0;j<v_hists.size();j++)
 	{
-		TH1D* hist = v_hists[j];
+		TH1* hist = v_hists[j];
 		double wf = 1;
 		if(g_data)
 		{
@@ -391,19 +489,19 @@ TGraphAsymmErrors* getAsymmetryEbEUncertaintyTGraphErrors(
 		)
 {
 	TH2D* h2d_temp = getAsymmetryEbE(0,G_binning_type);
-	TH1D* h_template = h2d_temp->ProfileX()->ProjectionX();;
+	TH1D* h_mean_ALL_mean_pdf = h2d_temp->ProfileX()->ProjectionX();;
 
 	//Show middle step
-	if(f)
+	if(f&&!f->FindKey("h2d_asymmetry_pT_y"))
 	{
 		h2d_temp->SetName("h2d_asymmetry_pT_y");
 		f->cd();
 		h2d_temp->Write();
 	}
 
-	double xmin = h_template->GetXaxis()->GetXmin();
-	double xmax = h_template->GetXaxis()->GetXmax();
-	int nbin = h_template->GetXaxis()->GetNbins();
+	TH1* histo_uncertainty = dynamic_cast<TH1*> (G_v_A_LL_replicas[0]->Clone("histo_uncertainty"));
+	if(histo_uncertainty)
+		histo_uncertainty->Reset();
 
 	vector<double> tge_x;
 	vector<double> tge_y;
@@ -412,68 +510,85 @@ TGraphAsymmErrors* getAsymmetryEbEUncertaintyTGraphErrors(
 	vector<double> tge_eyl;
 	vector<double> tge_eyh;
 
-	for(int ibin=1;ibin<=nbin;ibin++)
+	for(int ibin_x=1;ibin_x<=histo_uncertainty->GetNbinsX();ibin_x++)
 	{
-		vector<double> v_temporary;
-		BOOST_FOREACH(TH1D* h, G_v_A_LL_replicas)
+		for(int ibin_y=1;ibin_y<=histo_uncertainty->GetNbinsY();ibin_y++)
 		{
-			v_temporary.push_back(h->GetBinContent(ibin));
-		}
-		double mean = h_template->GetBinContent(ibin);
-		tge_x.push_back(h_template->GetXaxis()->GetBinCenter(ibin));
-		tge_exl.push_back(0);
-		tge_exh.push_back(0);
-		if(uncertainty_method == "StdDeV")
-		{
-			double std_dev;
-			if(do_reweighting)
+			for(int ibin_z=1;ibin_z<=histo_uncertainty->GetNbinsZ();ibin_z++)
 			{
-				mean = getMean(v_temporary,G_v_weighting_factors);
-				std_dev = getStdDev(v_temporary,mean,G_v_weighting_factors);
-			}
-			else
-			{
-				mean = getMean(v_temporary);
-				std_dev = getStdDev(v_temporary,mean);
-			}
-			tge_eyl.push_back(nsigma*std_dev);
-			tge_eyh.push_back(nsigma*std_dev);
-			cout<<Form("DEBUG: ibin: %d; \t mean: %f; \t std_dev: %f; \n",ibin,mean,std_dev);
-		}
-		if(uncertainty_method == "Counting")
-		{
-			tdd low_high_boundry = getLowHighCLBoundry(v_temporary);
-			tge_eyl.push_back(mean - get<0>(low_high_boundry));
-			tge_eyh.push_back(get<1>(low_high_boundry) - mean);
-		}
-		if(G_binning_type == "None")
-		{
-			//mean = h_template->GetBinContent(ibin);
-			const char* hname = "h_A_LL_dist_Combine";
-			TH1D *h_all_dist = new TH1D(hname,hname,100,-0.02,0.02);
-			cout<<"====="<<endl;
-			cout<<mean<<endl;
-			cout<<"-----"<<endl;
-			BOOST_FOREACH(double var, v_temporary)
-			{
-				cout<<var<<endl;
-				h_all_dist->Fill(var);
-			}
-			cout<<"====="<<endl;
-			if(f)
-			{
-				f->cd();
-				h_all_dist->Write();
-			}
+				vector<double> v_temporary;
+				BOOST_FOREACH(TH1* h, G_v_A_LL_replicas)
+				{
+					v_temporary.push_back(h->GetBinContent(ibin_x,ibin_y,ibin_z));
+				}
+				//double mean = h_mean_ALL_mean_pdf->GetBinContent(ibin_x,ibin_y,ibin_z);
+				double mean = 0;
+				tge_x.push_back(h_mean_ALL_mean_pdf->GetXaxis()->GetBinCenter(ibin_x));
+				tge_exl.push_back(0);
+				tge_exh.push_back(0);
+				if(uncertainty_method == "StdDeV")
+				{
+					double std_dev;
+					if(do_reweighting)
+					{
+						mean = getMean(v_temporary,G_v_weighting_factors);
+						std_dev = getStdDev(v_temporary,mean,G_v_weighting_factors);
+					}
+					else
+					{
+						mean = getMean(v_temporary);
+						std_dev = getStdDev(v_temporary,mean);
+					}
+					tge_eyl.push_back(nsigma*std_dev);
+					tge_eyh.push_back(nsigma*std_dev);
+					cout<<Form("DEBUG: ibin_x: %d; \t mean: %f; \t std_dev: %f; \n",ibin_x,mean,std_dev);
 
-		}
-		tge_y.push_back(mean);
-	}
+					if(histo_uncertainty)
+						histo_uncertainty->SetBinContent(ibin_x,ibin_y,ibin_z,std_dev);
+				}
+				if(uncertainty_method == "Counting")
+				{
+					tdd low_high_boundry = getLowHighCLBoundry(v_temporary);
+					tge_eyl.push_back(mean - get<0>(low_high_boundry));
+					tge_eyh.push_back(get<1>(low_high_boundry) - mean);
+				}
+				if(G_binning_type == "None")
+				{
+					//mean = h_mean_ALL_mean_pdf->GetBinContent(ibin_x);
+					const char* hname = "h_A_LL_dist_Combine";
+					TH1D *h_all_dist = new TH1D(hname,hname,100,-0.02,0.02);
+					cout<<"====="<<endl;
+					cout<<mean<<endl;
+					cout<<"-----"<<endl;
+					BOOST_FOREACH(double var, v_temporary)
+					{
+						cout<<var<<endl;
+						h_all_dist->Fill(var);
+					}
+					cout<<"====="<<endl;
+					if(f&&!f->FindKey("h_A_LL_dist_Combine"))
+					{
+						f->cd();
+						h_all_dist->Write();
+					}
+
+				}
+				tge_y.push_back(mean);
+			}//z binning
+		}//y binning
+	}//x binning
 
 	TGraphAsymmErrors* tge = new TGraphAsymmErrors(tge_x.size(),
 			&tge_x[0],&tge_y[0],
 			&tge_exl[0],&tge_exh[0],
 			&tge_eyl[0],&tge_eyh[0]);
+
+	if(f&&!f->FindKey("histo_uncertainty"))
+	{
+		f->cd();
+		if(histo_uncertainty)
+			histo_uncertainty->Write();
+	}
 
 	return tge;
 }
@@ -520,6 +635,9 @@ TH1D* estimateOneValue(
 void initStuff()
 {
 	// G_g_run13_data for the result
+	G_x_pT_mapping_method = "simulation";
+	//G_x_pT_mapping_method = "pythia_6_mean2";//pT 0-10 + 4-10
+	//G_x_pT_mapping_method = "Bjorken_x_Scan";
 	G_g_run13_data = getDataPlot();
 	G_g_run13_data->SetMarkerStyle(21);
 	G_g_run13_data->SetMarkerColor(kBlack);
