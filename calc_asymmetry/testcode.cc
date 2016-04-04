@@ -31,7 +31,7 @@ using namespace std;
 string G_x_pT_mapping_method = "simulation";
 string G_input_pythia_name = "input.root";
 
-const double G_AHAT = -1; //ahat
+const double G_AHAT = 1; //ahat
 
 const double G_YRANGEMIN = -0.1;
 const double G_YRANGEMAX =  0.1;
@@ -49,6 +49,31 @@ vector<double> G_v_weighting_factors;
 
 TGraphErrors *G_g_run13_data;
 
+
+double calcNEff (vector<double> vw)
+{
+	//! N_{Eff} = exp( 1/N * \Sigma_{i = 1}^{N} w_{i} * log(N/w_{i}) )
+	//! where w_{i} is normalized: \Sigma_{i = 1}^{N} w_{i} = N
+	//! if \Sigma_{i = 1}^{N} w'_{i} = N'
+	//! Then w'_{i} * N/N' = w_{i}
+	double Np = 0;
+	BOOST_FOREACH(double v, vw)
+	{
+		Np += v;
+	}
+
+	double N = vw.size();
+	double NEff = 0;
+	BOOST_FOREACH(double v, vw)
+	{
+		v = v*N/Np;
+		NEff += v * log(N/v);
+	}
+
+	NEff = exp(NEff/N);
+
+	return NEff;
+}
 
 
 double quadSum(double x, double y)
@@ -888,6 +913,10 @@ int main(int argc, char* argv[]) {
 	//h_one_value->Write();
 
 	tfile->Close();
+
+	cout<<"==========================================================\n";
+	cout<<"IMORTANT: N_{eff}= "<<calcNEff(G_v_weighting_factors)<<"\n"; 
+	cout<<"==========================================================\n";
 
 	return 0;
 }
