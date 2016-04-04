@@ -31,7 +31,7 @@ using namespace std;
 string G_x_pT_mapping_method = "simulation";
 string G_input_pythia_name = "input.root";
 
-const double G_AHAT = 1; //ahat
+const double G_AHAT = -1; //ahat
 
 const double G_YRANGEMIN = -0.1;
 const double G_YRANGEMAX =  0.1;
@@ -149,22 +149,31 @@ tdd getLowHighCLBoundry(vector<double>v)
 	return make_tuple(Low,High);
 }
 
-TGraphErrors* getDataPlot()
+TGraphErrors* getDataPlot(int icase = 1)
 {
-	int n = 3;
-	double x[] = {1.12,2.79,5.25};
-	double y[] = {0.003,0.007,0.053};
-	double ex[] = {0,0,0};
-	double ey[] = {0.014,0.016,0.029};
+	if(icase == 0)
+	{
+		int n = 1;
+		double x[] = {2.0};
+		double y[] = {0.012};
+		double ex[] = {0};
+		double ey[] = {0.010};
+		TGraphErrors*gr = new TGraphErrors(n,x,y,ex,ey);
+		return gr;
+	}
 
-	//int n = 1;
-	//double x[] = {2.0};
-	//double y[] = {0.012};
-	//double ex[] = {0};
-	//double ey[] = {0.010};
+	if(icase == 1)
+	{
+		int n = 3;
+		double x[] = {1.12,2.79,5.25};
+		double y[] = {0.003,0.007,0.053};
+		double ex[] = {0,0,0};
+		double ey[] = {0.014,0.016,0.029};
+		TGraphErrors*gr = new TGraphErrors(n,x,y,ex,ey);
+		return gr;
+	}
 
-	TGraphErrors*gr = new TGraphErrors(n,x,y,ex,ey);
-	return gr;
+	return NULL;
 }
 
 void get_Bjorken_x_from_pT(double & x1, double & x2, double pT)
@@ -460,6 +469,7 @@ vector<double> getWeithtingFactors(vector<TH1*> v_hists, TGraphErrors* g_data)
 	{
 		TH1* hist = v_hists[j];
 		double wf = 1;
+		double chi2 = 0;
 		if(g_data)
 		{
 			for(int i=0;i<g_data->GetN();i++)
@@ -472,8 +482,11 @@ vector<double> getWeithtingFactors(vector<TH1*> v_hists, TGraphErrors* g_data)
 					theory = hist->GetBinContent(hist->FindBin(0));
 
 				wf *= TMath::Gaus(theory,mean,error);
+				chi2 += pow((theory - mean)/error,2);
 				cout<<Form("DEBUG: x=%f; \t mean=%f; \t error=%f; \t theory=%f; \t wf=%f; \n",x,mean,error,theory,wf);
 			}
+			wf = pow(chi2,(g_data->GetN() - 1.)/2.) * exp(-0.5 * chi2);
+			//wf = exp(-0.5 * chi2);
 		}
 		vw.push_back(wf);
 	}
@@ -638,7 +651,7 @@ void initStuff()
 	G_x_pT_mapping_method = "simulation";
 	//G_x_pT_mapping_method = "pythia_6_mean2";//pT 0-10 + 4-10
 	//G_x_pT_mapping_method = "Bjorken_x_Scan";
-	G_g_run13_data = getDataPlot();
+	G_g_run13_data = getDataPlot(0);//0: unbinnined data; 1: pT binned data;
 	G_g_run13_data->SetMarkerStyle(21);
 	G_g_run13_data->SetMarkerColor(kBlack);
 	G_g_run13_data->SetLineColor(kBlack);
