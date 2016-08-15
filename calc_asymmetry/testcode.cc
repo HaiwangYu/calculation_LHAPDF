@@ -33,6 +33,9 @@ string G_input_pythia_name = "input.root";
 
 const double G_AHAT = 1; //ahat
 
+const string G_Unpol_PDF = "NNPDF30_nlo_as_0119";
+const string G_Pol_PDF = "NNPDFpol11_100";
+
 const double G_YRANGEMIN = -0.1;
 const double G_YRANGEMAX =  0.1;
 
@@ -251,11 +254,11 @@ void get_Bjorken_x_from_pT(double & x1, double & x2, double pT)
 
 TH2D *getAsymmetryEbE(
 		const int imem = 0,
-		const string binning_type = "pT",
-		const string polset = "NNPDFpol11_100",
-		const string unpolset = "NNPDF23_nlo_as_0119"
+		const string binning_type = "pT"
 		)
 {
+	const string polset = G_Pol_PDF;//"NNPDFpol11_100";
+	const string unpolset = G_Unpol_PDF;//"NNPDF30_nlo_as_0119";
 	// Load pythia file
 	TFile *fin = TFile::Open(G_input_pythia_name.data(),"read");
 	TTree *T = (TTree*)fin->Get("T");
@@ -343,11 +346,14 @@ TH2D *getAsymmetryEbE(
 }
 
 TH2D *getAsymmetry_Bjorken_x(
-		const int imem = 0,
-		const string polset = "NNPDFpol11_100",
-		const string unpolset = "NNPDF23_nlo_as_0119"
+		const int imem = 0
+		//const string polset = "NNPDFpol11_100",
+		//const string unpolset = "NNPDF30_nlo_as_0119"
 		)
 {
+	const string polset = G_Pol_PDF;//"NNPDFpol11_100";
+	const string unpolset = G_Unpol_PDF;//"NNPDF30_nlo_as_0119";
+
 	const double min_bin_logx1 = -3.5;
 	const double max_bin_logx1 = 0;
 	const int nbin_logx1 = 400;
@@ -398,11 +404,14 @@ TH2D *getAsymmetry_Bjorken_x(
 
 
 TH1D *getAsymmetryFunc(
-		const int imem = 0,
-		const string polset = "NNPDFpol11_100",
-		const string unpolset = "NNPDF23_nlo_as_0119"
+		const int imem = 0
+		//const string polset = "NNPDFpol11_100",
+		//const string unpolset = "NNPDF30_nlo_as_0119"
 		)
 {
+	const string polset = G_Pol_PDF;//"NNPDFpol11_100";
+	const string unpolset = G_Unpol_PDF;//"NNPDF30_nlo_as_0119";
+
 	const double min_bin = 0;
 	const double max_bin = 10;
 	const int nbin = 100;
@@ -633,11 +642,14 @@ TGraphAsymmErrors* getAsymmetryEbEUncertaintyTGraphErrors(
 
 TH1D* estimateOneValue(
 		const double x1 = 0.064,
-		const double x2 = 0.0019,
-		const string polset = "NNPDFpol11_100",
-		const string unpolset = "NNPDF23_nlo_as_0119"
+		const double x2 = 0.0019
+		//const string polset = "NNPDFpol11_100",
+		//const string unpolset = "NNPDF30_nlo_as_0119"
 		)
 {
+	const string polset = G_Pol_PDF;//"NNPDFpol11_100";
+	const string unpolset = G_Unpol_PDF;//"NNPDF30_nlo_as_0119";
+
 	char *hname = Form("pol=%s-unpol=%s-Q2=%2.1f",polset.data(),unpolset.data(),G_Q2);
 	TH1D *h_result = new TH1D(hname,hname,100,-0.02,0.02);
 
